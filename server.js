@@ -3,8 +3,8 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
-const TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN';
-const CHAT_ID = 'YOUR_CHAT_ID';
+const TELEGRAM_BOT_TOKEN = '8214186320:AAGpMuO7aMRjuozhMYHa3rxW9vW7NtG7g5w';
+const CHAT_ID = '-1003103152784';
 
 app.post('/webhook', async (req, res) => {
   try {
