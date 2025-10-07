@@ -1,10 +1,12 @@
-// server.js — bulletproof version for TradingView alerts
 const express = require('express');
 const axios = require('axios');
+const bodyParser = require('body-parser');
 const app = express();
 
-// Capture both raw text and JSON
-app.use(express.text({ type: '*/*', limit: '1mb' }));
+// Handle any possible TradingView format
+app.use(bodyParser.text({ type: '*/*' }));
+app.use(bodyParser.json({ type: '*/*', strict: false }));
+app.use(bodyParser.urlencoded({ extended: true }));
 
 const TELEGRAM_BOT_TOKEN = '8214186320:AAGpMuO7aMRjuozhMYHa3rxW9vW7NtG7g5w';
 const CHAT_ID = '-1003103152784';
@@ -12,38 +14,38 @@ const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMess
 
 app.post('/webhook', async (req, res) => {
   try {
-    let body = req.body;
+    let rawBody = req.body;
 
-    // Sometimes TradingView sends escaped JSON or nested strings
-    if (typeof body === 'string') {
-      // Try to parse if it looks like JSON
-      try {
-        const parsed = JSON.parse(body);
-        if (typeof parsed === 'object') {
-          body = JSON.stringify(parsed, null, 2);
-        }
-      } catch {
-        // not JSON, leave as plain string
-      }
-    } else if (typeof body === 'object') {
-      body = JSON.stringify(body, null, 2);
+    // Convert anything to readable text
+    let messageText = '';
+
+    if (typeof rawBody === 'string' && rawBody.trim() !== '') {
+      messageText = rawBody;
+    } else if (typeof rawBody === 'object' && Object.keys(rawBody).length > 0) {
+      messageText = JSON.stringify(rawBody, null, 2);
+    } else {
+      messageText = '⚠️ Empty body received (TradingView sent no text)';
     }
 
-    const text = `🚨 TradingView Alert\n\n${body || '⚠️ Empty body received'}`;
+    // Format message
+    const text = `🚨 *TradingView Alert*\n\n${messageText}`;
 
-    // Send to Telegram (plain text, no parse_mode)
-    await axios.post(TELEGRAM_API, {
+    // Send to Telegram
+    const response = await axios.post(TELEGRAM_API, {
       chat_id: CHAT_ID,
-      text
+      text,
+      parse_mode: 'Markdown'
     });
 
-    console.log('✅ Sent to Telegram:', text);
+    console.log('✅ Telegram sent:', response.data.result?.text || text);
+    console.log('📩 Raw body received from TradingView:', rawBody);
+
     res.status(200).send('OK');
   } catch (err) {
-    console.error('❌ Error sending Telegram message:', err.message);
+    console.error('❌ Error:', err.message);
     res.status(500).send('Error');
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Webhook listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Webhook active on port ${PORT}`));
